@@ -42,15 +42,10 @@ exec_cmd() {
   cmd_fail_ok=0
 }
 
-if [ "$#" -ne 3 ]; then
-  echo "need 3 args: ssh key, ssh user and quoted list of nodes"
+if [ $# -eq 1 ]; then
+  #  [ -z $master_ip ] is true if master ip not supplied
+  master_ip=$1
 fi
-
-sshKey=$1
-sshUser=$2
-echo $sshKey $sshUser
-
-exit
 
 ############## install docker
 
