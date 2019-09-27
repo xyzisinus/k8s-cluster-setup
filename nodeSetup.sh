@@ -42,9 +42,15 @@ exec_cmd() {
   cmd_fail_ok=0
 }
 
-if [ $# -eq 1 ]; then
-  #  [ -z $master_ip ] is true if master ip not supplied
-  master_ip=$1
+if [ $# -eq 0 ]; then
+  onMaster=1
+else
+  joinCmd=$@
+fi
+
+if [ $onMaster ]; then
+  echo "ON MASTER"
+  exit
 fi
 
 ############## install docker
@@ -89,20 +95,25 @@ exec_cmd apt install -y kubeadm
 
 exec_cmd swapoff -a
 
-if [ -z $master_ip ]; then
+if [ $onMaster ]; then
 
-want_cmd_output=1
-exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/16
-echo "$cmd_output" > node_signin
+  want_cmd_output=1
+  exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/16
+  echo "$cmd_output" > node_signin
 
-sudo_user_uid=$(id $SUDO_USER -u)
-sudo_user_gid=$(id $SUDO_USER -g)
-exec_cmd mkdir -p $HOME/.kube
-exec_cmd cp /etc/kubernetes/admin.conf $HOME/.kube/config
-exec_cmd chown -R ${sudo_user_uid}:${sudo_user_gid} $HOME/.kube
+  sudo_user_uid=$(id $SUDO_USER -u)
+  sudo_user_gid=$(id $SUDO_USER -g)
+  exec_cmd mkdir -p $HOME/.kube
+  exec_cmd cp /etc/kubernetes/admin.conf $HOME/.kube/config
+  exec_cmd chown -R ${sudo_user_uid}:${sudo_user_gid} $HOME/.kube
 
-k8s_app="https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
-exec_cmd kubectl apply -f $k8s_app
+  k8s_app="https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+  exec_cmd kubectl apply -f $k8s_app
+
+else
+  # on slave
+  eval $joinCmd
+fi
 
 exit
 

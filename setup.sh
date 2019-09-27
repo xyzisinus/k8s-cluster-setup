@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # how to use:
 # sudo bash
@@ -48,9 +48,28 @@ fi
 
 sshKey=$1
 sshUser=$2
-echo $sshKey $sshUser
+
+sshCmd="ssh -o StrictHostKeyChecking=no -i $sshKey -l $sshUser"
+scpCmd="scp -o StrictHostKeyChecking=no -i $sshKey"
+setupScript="/h/czang/k8s/nodeSetup.sh"
+
+read -ra nodes <<< "$3"
+for i in "${!nodes[@]}"; do
+  node="${nodes[$i]}"
+  if [ $i -eq 0 ]; then
+    masterNode=$node
+    eval sudo $sshCmd ${node} "'sudo bash -s' < $setupScript"
+    sudo $scpCmd ${sshUser}@${node}:node_signin /tmp
+    joinCmd=$(tail -2 /tmp/node_signin)
+  else
+    # --v=2 gives critical info which should be present without the flag
+    eval sudo $sshCmd ${node} "'sudo bash -s' < $setupScript" \"$joinCmd --v=2\"
+  fi
+done
 
 exit
+
+
 
 ############## install docker
 
