@@ -1,15 +1,7 @@
 #!/bin/bash
 
-# how to use:
-# sudo bash
-# bash setup.sh
-# if you do exec_cmd cmd > file, do exec_cmd "cmd > file" to avoid exec_cmd()
-# dumping stuff into your file
-
-#  scp czang@everest.pdl.cmu.edu:/h/czang/k8s/setup.sh .
-# ssh ubuntu@192.168.1.1 'sudo bash -s' < setup.sh
-
-# sudo ssh -i deployment/config/746-autograde.pem ubuntu@18.218.12.108 'sudo bash -s' < ~/k8s/setup.sh
+# invoke nodeSetup.sh to create a k8s cluster.
+# how to use: ./setup.sh sshKey sshUser "node1 node2 ...".  node1 is master
 
 DEBUG=1  # show command output if not 0
 want_cmd_output=0  # caller should set to non-zero if cmd output is wanted
@@ -44,6 +36,7 @@ exec_cmd() {
 
 if [ "$#" -ne 3 ]; then
   echo "need 3 args: ssh key, ssh user and quoted list of nodes"
+  exit -1
 fi
 
 sshKey=$1
@@ -57,7 +50,8 @@ read -ra nodes <<< "$3"
 for i in "${!nodes[@]}"; do
   node="${nodes[$i]}"
   if [ $i -eq 0 ]; then
-    masterNode=$node
+    # master node. nodeSetup.sh will dump the output of kubeadm init
+    # into a file node_signin whose last two lines is the "kubadm join" cmd.
     eval sudo $sshCmd ${node} "'sudo bash -s' < $setupScript"
     sudo $scpCmd ${sshUser}@${node}:node_signin /tmp
     joinCmd=$(tail -2 /tmp/node_signin)

@@ -1,15 +1,18 @@
-#!/bin/sh
+#!/bin/bash
 
-# how to use:
-# sudo bash
-# bash setup.sh
-# if you do exec_cmd cmd > file, do exec_cmd "cmd > file" to avoid exec_cmd()
-# dumping stuff into your file
-
-#  scp czang@everest.pdl.cmu.edu:/h/czang/k8s/setup.sh .
-# ssh ubuntu@192.168.1.1 'sudo bash -s' < setup.sh
-
-# sudo ssh -i deployment/config/746-autograde.pem ubuntu@18.218.12.108 'sudo bash -s' < ~/k8s/setup.sh
+# This script is invoked by the setup.sh script to set up k8s on
+# an individual node, either the master node or a worker nodes.
+# If used manually:
+#
+# On the master: "sudo nodeSetup.sh" or from another host do
+# ssh sshUser@master 'sudo bash -s' < nodeSetup.sh
+# Upon completion, the script will generate a file "node_signin"
+# in its working directory on the master node.  At the end of
+# the file, the "kubeadm join" command will be used by the
+# worker nodes to join the cluster.
+#
+# On a worker: "sudo nodeSetup.sh 'kubeadm join ...'" or
+# ssh sshUser@workder 'sudo bash -s' < nodeSetup.sh 'kubeadm join ...'
 
 DEBUG=1  # show command output if not 0
 want_cmd_output=0  # caller should set to non-zero if cmd output is wanted
@@ -48,11 +51,6 @@ else
   joinCmd=$@
 fi
 
-if [ $onMaster ]; then
-  echo "ON MASTER"
-  exit
-fi
-
 ############## install docker
 
 exec_cmd apt-get update && apt-get install -y apt-transport-https ca-certificates curl software-properties-common
@@ -60,7 +58,6 @@ exec_cmd apt-get update && apt-get install -y apt-transport-https ca-certificate
 exec_cmd curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
 
 dep_path="deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs)  stable"
-
 exec_cmd add-apt-repository ${dep_path@Q}
 
 exec_cmd apt-get update && apt-get install -y docker-ce=18.06.2~ce~3-0~ubuntu
@@ -82,13 +79,11 @@ exec_cmd mkdir -p /etc/systemd/system/docker.service.d
 exec_cmd systemctl daemon-reload
 exec_cmd systemctl restart docker
 
-
 ############## install k8s
 
 exec_cmd "curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add"
 
 dep_path="deb http://apt.kubernetes.io/ kubernetes-xenial main"
-
 exec_cmd add-apt-repository ${dep_path@Q}
 
 exec_cmd apt install -y kubeadm
@@ -96,7 +91,7 @@ exec_cmd apt install -y kubeadm
 exec_cmd swapoff -a
 
 if [ $onMaster ]; then
-
+  # on master
   want_cmd_output=1
   exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/16
   echo "$cmd_output" > node_signin
@@ -111,13 +106,8 @@ if [ $onMaster ]; then
   exec_cmd kubectl apply -f $k8s_app
 
 else
-  # on slave
+  # on worker
   eval $joinCmd
 fi
 
 exit
-
-# common commands
-
-kubeadm token list
-kubectl get pods --all-namespaces
