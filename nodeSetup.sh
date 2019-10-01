@@ -13,6 +13,9 @@
 #
 # On a worker: "sudo nodeSetup.sh 'kubeadm join ...'" or
 # ssh sshUser@workder 'sudo bash -s' < nodeSetup.sh 'kubeadm join ...'
+#
+# To use exec_cmd on an echo command with redirection, add quotes like
+# exec_cmd "echo abc > xyz"
 
 DEBUG=1  # show command output if not 0
 want_cmd_output=0  # caller should set to non-zero if cmd output is wanted
@@ -44,6 +47,30 @@ exec_cmd() {
   want_cmd_output=0
   cmd_fail_ok=0
 }
+# } &> /var/log/k8s/setup.log
+
+mkdir -p /var/log/k8s
+touch /var/log/k8s/setup.log
+
+# make no_proxy env to exclude hosts in the cluster
+noProxyStr="export no_proxy=narwhal.pdl.cmu.edu,localhost,127.0.0.1"
+. /etc/emulab/paths.sh
+while IFS= read -r line; do
+  read type nickname hostname rest <<< "$line";
+  if [ $type == H ]; then
+    ip=$(getent hosts $hostname | awk '{ print $1 }')
+    noProxyStr="${noProxyStr},${ip}"
+  fi
+done < $BOOTDIR/ltpmap
+exec_cmd echo $noProxyStr
+$noProxyStr
+
+# add no_proxy setting in bash user's env for them to use kubectl, etc.
+cat > /etc/profile.d/k8s_env.sh <<EOF
+if [ -f /usr/bin/kubectl ]; then
+  $noProxyStr
+fi
+EOF
 
 if [ $# -eq 0 ]; then
   onMaster=1
@@ -53,7 +80,9 @@ fi
 
 ############## install docker
 
-exec_cmd apt-get update && apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+exec_cmd apt-get update
+
+exec_cmd DEBIAN_FRONTEND=noninteractive apt-get install -y apt-transport-https ca-certificates curl software-properties-common
 
 exec_cmd curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
 
@@ -70,11 +99,20 @@ cat > /etc/docker/daemon.json <<EOF
     "max-size": "100m"
   },
   "storage-driver": "overlay2"
-
 }
 EOF
 
 exec_cmd mkdir -p /etc/systemd/system/docker.service.d
+
+# tell docker proxy settings from env
+proxyConf=/etc/systemd/system/docker.service.d/http-proxy.conf
+echo "[Service]" >> $proxyConf
+proxies=($(printenv | grep -i _proxy))
+for proxy in ${proxies[@]}; do
+  IFS="=" read key value <<< $proxy
+  KEY=$(echo $key | awk '{print toupper($0)}')
+  echo Environment=\"$KEY=$value\" >> $proxyConf
+done
 
 exec_cmd systemctl daemon-reload
 exec_cmd systemctl restart docker
@@ -86,14 +124,14 @@ exec_cmd "curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-ke
 dep_path="deb http://apt.kubernetes.io/ kubernetes-xenial main"
 exec_cmd add-apt-repository ${dep_path@Q}
 
-exec_cmd apt install -y kubeadm
+exec_cmd apt-get install -y kubeadm
 
 exec_cmd swapoff -a
 
 if [ $onMaster ]; then
   # on master
   want_cmd_output=1
-  exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/16
+  exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/16 --v=10
   echo "$cmd_output" > node_signin
 
   sudo_user_uid=$(id $SUDO_USER -u)
