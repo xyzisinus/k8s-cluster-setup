@@ -94,18 +94,23 @@ WantedBy=shutdown.target
 EOF
 
 wait4joinFile() {
+  elapsed=0
   while true; do
-    echo wait 1 second
-    sleep 1
+    sleep 5
+    elapsed=$((elapsed+5))
+    echo have waited $elapsed seconds
+
     # it's observed that the share nodeJoinFile may not be
     # noticed by other nodes soon enough.  Adding a "ls parentDir"
     # seems to help
     ls $nodeJoinFileDir > /dev/null
     if [ -f $nodeJoinFile ]; then
-      joinCmd=$(tail -2 $nodeJoinFile)
       break
     fi
   done
+  twoLines=$(tail -2 $nodeJoinFile)
+  # remove backslash that separates two lines
+  joinCmd=$(echo $twoLines | sed 's/\\/ /')
 }
 
 if [ $(hostname -s) == "h0" ]; then
