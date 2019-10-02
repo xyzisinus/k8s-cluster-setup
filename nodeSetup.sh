@@ -17,6 +17,14 @@
 # To use exec_cmd on an echo command with redirection, add quotes like
 # exec_cmd "echo abc > xyz"
 
+. /etc/profile
+
+# if not running as root, sudo
+if [[ $EUID -ne 0 ]]; then
+  sudo $0
+  exit
+fi
+
 DEBUG=1  # show command output if not 0
 want_cmd_output=0  # caller should set to non-zero if cmd output is wanted
 cmd_fail_ok=0  # do not exit when cmd fails
@@ -188,7 +196,7 @@ exec_cmd swapoff -a
 if [ $onMaster ]; then
   # on master
   want_cmd_output=1
-  exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/16 --v=10
+  exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/16 --v=5
   echo "$cmd_output" > $nodeJoinFile
 
   sudo_user_uid=$(id $SUDO_USER -u)
@@ -203,7 +211,7 @@ if [ $onMaster ]; then
 else
   # on worker.  wait for master to be ready then join
   wait4joinFile
-  exec_cmd $joinCmd
+  exec_cmd $joinCmd --v=5
 fi
 
 exit
