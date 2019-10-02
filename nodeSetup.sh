@@ -30,7 +30,7 @@ exec_cmd() {
   cmd_output=warning_uninitialized
 
   if (($want_cmd_output)); then
-    cmd_output=$($@)
+    cmd_output=$(eval $@)
     echo "$cmd_output"
   elif (($DEBUG)); then
     eval $@
@@ -46,8 +46,9 @@ exec_cmd() {
 
   want_cmd_output=0
   cmd_fail_ok=0
-}
-# } &> /var/log/k8s/setup.log
+} &>> /var/log/k8s/setup.log
+# replace the line above with a single "}" to observe command's output
+# }
 
 mkdir -p /var/log/k8s
 touch /var/log/k8s/setup.log
@@ -95,6 +96,8 @@ EOF
 
 wait4joinFile() {
   elapsed=0
+  echo wait to join the master
+
   while true; do
     sleep 5
     elapsed=$((elapsed+5))
@@ -114,14 +117,15 @@ wait4joinFile() {
 }
 
 if [ $(hostname -s) == "h0" ]; then
-  echo MASTER
+  exec_cmd echo k8s setup start on MASTER node
   rm -f $nodeJoinFile
   onMaster=1
   # start the cleanup service on master
   sudo systemctl start k8s-cleanup
 else
-  echo WORKER
+  exec_cmd echo k8s setup start on WORKER node
 fi
+exec_cmd date
 
 ############## install docker
 
@@ -129,12 +133,15 @@ exec_cmd apt-get update
 
 exec_cmd DEBIAN_FRONTEND=noninteractive apt-get install -y apt-transport-https ca-certificates curl software-properties-common
 
-exec_cmd curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+want_cmd_output=1
+exec_cmd curl -fsSL https://download.docker.com/linux/ubuntu/gpg
+exec_cmd apt-key add <<< "$cmd_output"
 
 dep_path="deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs)  stable"
 exec_cmd add-apt-repository ${dep_path@Q}
 
-exec_cmd apt-get update && apt-get install -y docker-ce=18.06.2~ce~3-0~ubuntu
+exec_cmd apt-get update
+exec_cmd apt-get install -y docker-ce=18.06.2~ce~3-0~ubuntu
 
 cat > /etc/docker/daemon.json <<EOF
 {
@@ -164,12 +171,17 @@ exec_cmd systemctl restart docker
 
 ############## install k8s
 
-exec_cmd "curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add"
+# the key is binary, better not let it go stdout
+tmpFile=$(mktemp /tmp/k8s-apt-key.XXXXXX)
+exec_cmd curl -s --output $tmpFile https://packages.cloud.google.com/apt/doc/apt-key.gpg
+exec_cmd apt-key add $tmpFile
+rm -f $tmpFile
 
 dep_path="deb http://apt.kubernetes.io/ kubernetes-xenial main"
 exec_cmd add-apt-repository ${dep_path@Q}
 
-exec_cmd apt-get install -y kubeadm
+exec_cmd apt-get install -y kubelet kubeadm kubectl
+exec_cmd apt-mark hold kubelet kubeadm kubectl
 
 exec_cmd swapoff -a
 
@@ -189,7 +201,7 @@ if [ $onMaster ]; then
   exec_cmd kubectl apply -f $k8s_app
 
 else
-  # on worker
+  # on worker.  wait for master to be ready then join
   wait4joinFile
   exec_cmd $joinCmd
 fi
