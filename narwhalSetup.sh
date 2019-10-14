@@ -54,9 +54,9 @@ exec_cmd() {
 
   want_cmd_output=0
   cmd_fail_ok=0
-# } &>> /var/log/k8s/setup.log
+} &>> /var/log/k8s/setup.log
 # replace the line above with a single "}" to observe command's output
-}
+# }
 
 mkdir -p /var/log/k8s
 touch /var/log/k8s/setup.log
@@ -71,7 +71,11 @@ while IFS= read -r line; do
     noProxyStr="${noProxyStr},${ip}"
   fi
 done < $BOOTDIR/ltpmap
-# exec_cmd echo $noProxyStr
+printf -v service '%s,' 10.224.0.{0..255}
+printf -v lan '%s,' 10.244.0.{0..255}
+printf -v pod '%s,' 10.32.0.{0..255}
+noProxyStr="${noProxyStr},${service}${lan}${pod}"
+exec_cmd echo $noProxyStr
 $noProxyStr
 
 # add no_proxy setting in bash user's env for them to use kubectl, etc.
@@ -196,7 +200,7 @@ exec_cmd swapoff -a
 if [ $onMaster ]; then
   # on master
   want_cmd_output=1
-  exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/16 --v=5
+  exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/24 --service-cidr=10.224.0.0/24 --v=5
   echo "$cmd_output" > $nodeJoinFile
 
   sudo_user_uid=$(id $SUDO_USER -u)
@@ -209,7 +213,7 @@ if [ $onMaster ]; then
   exec_cmd kubectl apply -f $k8s_app
 
   # set master to a working node
-  # exec_cmd kubectl taint nodes --all node-role.kubernetes.io/master-
+  exec_cmd kubectl taint nodes --all node-role.kubernetes.io/master-
 
 else
   # on worker.  wait for master to be ready then join
