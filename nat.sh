@@ -154,8 +154,8 @@ exec_cmd systemctl daemon-reload
 exec_cmd systemctl restart docker
 
 # add the user into docker group
-exac_cmd usermod -aG docker $(id $SUDO_USER -un)
-exac_cmd newgrp docker
+exec_cmd usermod -aG docker $(id $SUDO_USER -un)
+exec_cmd newgrp docker
 
 ############## install k8s
 
