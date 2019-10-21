@@ -40,6 +40,7 @@ IFS=. read h e p < $BOOTDIR/nickname
 nodeJoinFile=/proj/$p/exp/$e/tmp/nodeJoinFile
 nodeJoinFileDir=/proj/$p/exp/$e/tmp
 clusterConfig="${e}.${p}.conf"
+clusterName="${e}.${p}.k8s"
 logFile=/proj/$p/exp/$e/logs/$h.k8s.setup.log
 
 rm -r $logFile
@@ -107,17 +108,12 @@ afterKubeInit() {
   k8s_app="https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
   exec_cmd kubectl apply -f $k8s_app
 
-  # set master to a working node
-  if [[ $hostCount -eq 1 ]]; then
-    exec_cmd kubectl taint nodes --all node-role.kubernetes.io/master-
-  fi
-
   # deploy load balancer
   exec_cmd kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.8.1/manifests/metallb.yaml
 
   # make load balancer config file  (host ips will be added later)
-  exec_cmd mkdir -p ~/.k8s
-  fullPath=$(echo ~/.k8s)
+  exec_cmd mkdir -p ~/.k8s/$clusterName
+  fullPath=$(echo ~/.k8s/$clusterName)
   metallbConfig=$fullPath/metallbConfig.yaml
 
   cat > $metallbConfig <<EOF
@@ -145,6 +141,11 @@ EOF
       hostCount=$((hostCount+1))
     fi
   done < $BOOTDIR/ltpmap
+
+  # set master to a working node
+  if [[ $hostCount -eq 1 ]]; then
+    exec_cmd kubectl taint nodes --all node-role.kubernetes.io/master-
+  fi
 
   # config load balancer. All host ips in the cluster are usable
   exec_cmd kubectl apply -f $metallbConfig
