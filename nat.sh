@@ -40,7 +40,7 @@ IFS=. read h e p < $BOOTDIR/nickname
 nodeJoinFile=/proj/$p/exp/$e/tmp/nodeJoinFile
 nodeJoinFileDir=/proj/$p/exp/$e/tmp
 clusterConfig="${e}.${p}.conf"
-logFile=/proj/$p/exp/$e/logs/$h.setup.log
+logFile=/proj/$p/exp/$e/logs/$h.k8s.setup.log
 
 rm -r $logFile
 touch $logFile
@@ -142,8 +142,8 @@ EOF
     if [ $type == H ]; then
       ip=$(getent hosts $hostname | awk '{ print $1 }')
       echo "      - ${ip}/32" >> $metallbConfig
+      hostCount=$((hostCount+1))
     fi
-    hostCount=$((hostCount+1))
   done < $BOOTDIR/ltpmap
 
   # config load balancer. All host ips in the cluster are usable
