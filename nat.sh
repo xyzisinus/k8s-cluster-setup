@@ -102,6 +102,7 @@ afterKubeInit() {
   sudo_user_gid=$(id $SUDO_USER -g)
   exec_cmd mkdir -p $KUBECONFIG_DIR
   exec_cmd cp /etc/kubernetes/admin.conf $KUBECONFIG_FILE
+  exec_cmd chown ${sudo_user_uid}:${sudo_user_gid} $KUBECONFIG_DIR
   exec_cmd chown ${sudo_user_uid}:${sudo_user_gid} $KUBECONFIG_FILE
   exec_cmd chmod g+r $KUBECONFIG_FILE
   exec_cmd export KUBECONFIG=$KUBECONFIG_FILE
