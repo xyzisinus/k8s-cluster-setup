@@ -35,13 +35,14 @@ unset no_proxy
 
 mv /etc/apt/apt.conf /etc/apt/apt.conf.not_necessary_with_NAT
 
-. /etc/emulab/paths.sh
-IFS=. read h e p < $BOOTDIR/nickname
-nodeJoinFile=/proj/$p/exp/$e/tmp/nodeJoinFile
-nodeJoinFileDir=/proj/$p/exp/$e/tmp
-clusterConfig="${e}.${p}.conf"
-clusterName="${e}.${p}.k8s"
-logFile=/proj/$p/exp/$e/logs/$h.k8s.setup.log
+# hostname is like h0.<exp>.<proj>.<rest>
+IFS=. read -r host exp proj rest <<< $(hostname)
+KUBECONFIG_DIR=/proj/$proj/exp/$exp/k8s
+KUBECONFIG_FILE=$KUBECONFIG_DIR/config
+nodeJoinFileDir=/proj/$proj/exp/$exp/tmp
+nodeJoinFile=$nodeJoinFileDir/nodeJoinFile
+k8sTmpDir=/proj/$proj/exp/$exp/tmp
+logFile=/proj/$proj/exp/$exp/logs/$host.k8s.setup.log
 
 rm -r $logFile
 touch $logFile
@@ -96,13 +97,14 @@ WantedBy=shutdown.target
 EOF
 
 afterKubeInit() {
-  # copy the config file to usser space and set KUBECONFIG env
+  # copy the config file to project space and set KUBECONFIG env
   sudo_user_uid=$(id $SUDO_USER -u)
   sudo_user_gid=$(id $SUDO_USER -g)
-  exec_cmd mkdir -p $HOME/.kube
-  exec_cmd cp /etc/kubernetes/admin.conf $HOME/.kube/$clusterConfig
-  exec_cmd chown -R ${sudo_user_uid}:${sudo_user_gid} $HOME/.kube/$clusterConfig
-  exec_cmd export KUBECONFIG=$KUBECONFIG:$HOME/.kube/$clusterConfig
+  exec_cmd mkdir -p $KUBECONFIG_DIR
+  exec_cmd cp /etc/kubernetes/admin.conf $KUBECONFIG_FILE
+  exec_cmd chown ${sudo_user_uid}:${sudo_user_gid} $KUBECONFIG_FILE
+  exec_cmd chmod g+r $KUBECONFIG_FILE
+  exec_cmd export KUBECONFIG=$KUBECONFIG_FILE
 
   # use weave addon for networking
   k8s_app="https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
@@ -112,9 +114,7 @@ afterKubeInit() {
   exec_cmd kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.8.1/manifests/metallb.yaml
 
   # make load balancer config file  (host ips will be added later)
-  exec_cmd mkdir -p ~/.k8s/$clusterName
-  fullPath=$(echo ~/.k8s/$clusterName)
-  metallbConfig=$fullPath/metallbConfig.yaml
+  metallbConfig=$k8sTmpDir/metallbConfig.yaml
 
   cat > $metallbConfig <<EOF
 apiVersion: v1
