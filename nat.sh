@@ -238,7 +238,7 @@ exec_cmd apt-mark hold kubelet kubeadm kubectl
 
 exec_cmd swapoff -a
 
-if [ $onMaster ]; then
+if [ $onMaster -eq 1 ]; then
   # on master
   want_cmd_output=1
   # exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/24 --service-cidr=10.224.0.0/24 --v=5
