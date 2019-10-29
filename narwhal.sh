@@ -51,7 +51,7 @@ EOF
   nodes=()
 
   . /etc/emulab/paths.sh
-    while IFS= read -r line; do
+  while IFS= read -r line; do
     read type nickname hostname rest <<< "$line";
     if [ $type == H ]; then
       nodes+=($(getent hosts $hostname | awk '{ print $1 }'))

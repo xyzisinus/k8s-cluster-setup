@@ -3,37 +3,6 @@
 # invoke nodeSetup.sh to create a k8s cluster.
 # how to use: ./setup.sh sshKey sshUser "node1 node2 ...".  node1 is master
 
-DEBUG=1  # show command output if not 0
-want_cmd_output=0  # caller should set to non-zero if cmd output is wanted
-cmd_fail_ok=0  # do not exit when cmd fails
-cmd_output=warning_uninitialized
-cmd_rc=-1
-exec_cmd() {
-  if (($DEBUG)); then
-    echo "### $@"
-  fi
-
-  cmd_output=warning_uninitialized
-
-  if (($want_cmd_output)); then
-    cmd_output=$($@)
-    echo "$cmd_output"
-  elif (($DEBUG)); then
-    eval $@
-  else
-    eval $@ > /dev/null
-  fi
-
-  cmd_rc=$?
-  if [[ $cmd_rc -ne 0 && $cmd_fail_ok -eq 0 ]]; then
-    echo "### cmd failed. exit"
-    exit -1
-  fi
-
-  want_cmd_output=0
-  cmd_fail_ok=0
-}
-
 if [ "$#" -ne 3 ]; then
   echo "need 3 args: ssh key, ssh user and quoted list of nodes"
   exit -1
