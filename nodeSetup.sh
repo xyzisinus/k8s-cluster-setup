@@ -32,15 +32,18 @@ if [[ $# -ne 0 ]]; then
 fi
 
 KUBECONFIG_DIR=~/.kube
-KUBECONFIG_FILE=config
+KUBECONFIG_FILE=$KUBECONFIG_DIR/config
 k8sTmpDir=~/k8s
 nodeJoinFile=$k8sTmpDir/nodeJoinFile
 logFile=$k8sTmpDir/$(hostname -s).setup.log
 
+# kubeadm init options
+pod_network_cidr='--pod-network-cidr=10.244.0.0/16'
+#pod_network_cidr=''
+service_cidr=''
+
 # setup options specific to local environment
-# it's OK if the script is not found
-#. /h/czang/k8s/narwhal.sh >& /dev/null
-. /h/czang/k8s/narwhal.sh
+. /tmp/localSetup.sh
 
 sudo_user_uid=$(id $SUDO_USER -u)
 sudo_user_gid=$(id $SUDO_USER -g)
@@ -60,6 +63,15 @@ echo $logFile
 }
 
 test
+
+# NOTE: this output in important for setup.sh to figure out
+# where nodeJoinFile is
+echo "nodeJoinFile: $nodeJoinFile"
+
+# prepare for nodeJoinFile location
+nodeJoinFileDir=$(dirname $nodeJoinFile)
+mkdir -p $nodeJoinFileDir
+chown ${sudo_user_uid}:${sudo_user_gid} $nodeJoinFileDir
 
 # create kube config dir is not default
 if [[ $KUBECONFIG_DIR != ~/.kube ]]; then
@@ -166,7 +178,7 @@ wait4joinFile() {
     # it's observed that the share nodeJoinFile may not be
     # noticed by other nodes soon enough.  Adding a "ls parentDir"
     # seems to help
-    ls $nodeJoinFileDir > /dev/null
+    ls $(dirname $nodeJoinFile) > /dev/null
     if [ -f $nodeJoinFile ]; then
       break
     fi
@@ -241,9 +253,7 @@ exec_cmd swapoff -a
 if [ $onMaster -eq 1 ]; then
   # on master
   want_cmd_output=1
-  # exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/24 --service-cidr=10.224.0.0/24 --v=5
-  # exec_cmd kubeadm init --pod-network-cidr=10.244.0.0/16 --v=5
-  exec_cmd kubeadm init --pod-network-cidr=192.168.10.0/24 --service-cidr=192.168.11.0/24 --v=5
+  exec_cmd kubeadm init $pod_network_cidr $service_cidr --v=5
   echo "$cmd_output" > $nodeJoinFile
 
   # get network, load balancer and context ready
