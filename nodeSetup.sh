@@ -73,12 +73,9 @@ nodeJoinFileDir=$(dirname $nodeJoinFile)
 mkdir -p $nodeJoinFileDir
 chown ${sudo_user_uid}:${sudo_user_gid} $nodeJoinFileDir
 
-# create kube config dir is not default
-if [[ $KUBECONFIG_DIR != ~/.kube ]]; then
-  echo make dir
-  mkdir -p $KUBECONFIG_DIR
-  chown ${sudo_user_uid}:${sudo_user_gid} $KUBECONFIG_DIR
-fi
+# prepare kube config dir
+mkdir -p $KUBECONFIG_DIR
+chown ${sudo_user_uid}:${sudo_user_gid} $KUBECONFIG_DIR
 
 # tmp directory ready
 mkdir -p $k8sTmpDir
@@ -117,9 +114,9 @@ exec_cmd() {
 
   want_cmd_output=0
   cmd_fail_ok=0
-# } &>> $logFile
-# replace the line above with a single "}" to observe command's output
-}
+} &>> $logFile
+# replace the line above with a single "}" to see output directly
+#}
 
 afterKubeInit() {
   # copy the config file to project space and set KUBECONFIG env

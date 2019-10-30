@@ -34,13 +34,14 @@ for i in "${!nodes[@]}"; do
     # the worker nodes to join the cluster.
 
     # setup master node, get nodeJoinFile location and scp it from master
-    nodeJoinFileColon=$($sshCmd ${node} "/tmp/nodeSetup.sh \"$3\"" | grep "nodeJoinFile:")
+    nodeJoinFileColon=$($sshCmd ${node} "/tmp/nodeSetup.sh \"$3\"" | grep "nodeJoinFile:") || exit 1
     read -r tag nodeJoinFile <<< "$nodeJoinFileColon"
-    $scpCmd ${sshUser}@${node}:$nodeJoinFile /tmp
+    $scpCmd ${sshUser}@${node}:$nodeJoinFile /tmp || exit 1
   else
-    # --v=2 gives critical info which should be present without the flag
-    $scpCmd /tmp/nodeJoinFile ${sshUser}@${node}:$nodeJoinFile
-    $sshCmd ${node} "/tmp/nodeSetup.sh"
+    nodeJoinFileDir=$(dirname $nodeJoinFile)
+    $sshCmd ${node} "mkdir -p \"$nodeJoinFileDir\""
+    $scpCmd /tmp/nodeJoinFile ${sshUser}@${node}:$nodeJoinFile || exit 1
+    $sshCmd ${node} "/tmp/nodeSetup.sh" || exit 1
   fi
 done
 
