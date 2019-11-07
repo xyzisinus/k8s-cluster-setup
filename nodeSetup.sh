@@ -41,6 +41,7 @@ logFile=$k8sTmpDir/$(hostname -s).setup.log
 pod_network_cidr='--pod-network-cidr=10.244.0.0/16'
 #pod_network_cidr=''
 service_cidr=''
+useIngressController=1
 
 # setup options specific to local environment
 . /tmp/localSetup.sh

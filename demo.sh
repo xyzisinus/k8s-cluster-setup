@@ -45,38 +45,6 @@ nginxLB=$fullPath/nginxLB.yaml
 helloLB=$fullPath/helloLB.yaml
 randomKey=$(openssl rand -base64 14)
 
-
-# deploy load balancer
-exec_cmd kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.8.1/manifests/metallb.yaml
-
-# config file, incomplete
-cat > $metallbConfig <<EOF
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: metallb-system
-  name: config
-data:
-  config: |
-    address-pools:
-    - name: default
-      protocol: layer2
-      addresses:
-EOF
-
-# add host ips in the cluster as public ips
-. /etc/emulab/paths.sh
-while IFS= read -r line; do
-  read type nickname hostname rest <<< "$line";
-  if [ $type == H ]; then
-    ip=$(getent hosts $hostname | awk '{ print $1 }')
-    echo "      - ${ip}/32" >> $metallbConfig
-  fi
-done < $BOOTDIR/ltpmap
-
-# config load balancer with config file
-exec_cmd kubectl apply -f $metallbConfig
-
 # deploy nginx
 # NOTE: assuming that this deployment defines a label "app: ngnix"
 exec_cmd kubectl create deployment nginx --image=nginx
