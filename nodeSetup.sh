@@ -130,6 +130,11 @@ afterKubeInit() {
   k8s_app="https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
   exec_cmd kubectl apply -f $k8s_app
 
+  # set master as a worker node, too, if it's the only node
+  if [[ ${#nodes[@]} -eq 1 ]]; then
+    exec_cmd kubectl taint nodes --all node-role.kubernetes.io/master-
+  fi
+
   # deploy load balancer
   exec_cmd kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.8.1/manifests/metallb.yaml
 
@@ -154,11 +159,6 @@ EOF
   for node in "${nodes[@]}"; do
     echo "      - ${node}/32" >> $metallbConfig
   done
-
-  # set master to a working node
-  if [[ ${#nodes[@]} -eq 1 ]]; then
-    exec_cmd kubectl taint nodes --all node-role.kubernetes.io/master-
-  fi
 
   # config load balancer. All host ips in the cluster are usable
   exec_cmd kubectl apply -f $metallbConfig
