@@ -88,7 +88,7 @@ nodeJoinFileDir=$(dirname $nodeJoinFile)
 mkdir -p $nodeJoinFileDir
 chown ${sudo_user_uid}:${sudo_user_gid} $nodeJoinFileDir
 
-# prepare kube config dir
+# prepare kube config dir.
 mkdir -p $KUBECONFIG_DIR
 chown ${sudo_user_uid}:${sudo_user_gid} $KUBECONFIG_DIR
 
@@ -132,8 +132,9 @@ exec_cmd() {
 # replace the line above with a single "}" to see output directly
 #}
 
+# this function runs on master only
 afterKubeInit() {
-  # copy the config file to project space and set KUBECONFIG env
+  # copy kube config file to user's space and set KUBECONFIG env
   exec_cmd cp /etc/kubernetes/admin.conf $KUBECONFIG_FILE
   exec_cmd chown ${sudo_user_uid}:${sudo_user_gid} $KUBECONFIG_FILE
   exec_cmd chmod g+r $KUBECONFIG_FILE
@@ -151,9 +152,8 @@ afterKubeInit() {
   # deploy load balancer
   exec_cmd kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.8.1/manifests/metallb.yaml
 
-  # make load balancer config file  (host ips will be added later)
+  # make load balancer config file (host ips will be added later)
   metallbConfig=$k8sTmpDir/metallbConfig.yaml
-
   cat > $metallbConfig <<EOF
 apiVersion: v1
 kind: ConfigMap
@@ -173,10 +173,11 @@ EOF
     echo "      - ${node}/32" >> $metallbConfig
   done
 
-  # config load balancer. All host ips in the cluster are usable
+  # config load balancer.
   exec_cmd kubectl apply -f $metallbConfig
 }
 
+# this function runs on work only
 wait4joinFile() {
   elapsed=0
   echo wait to join the master
@@ -186,14 +187,17 @@ wait4joinFile() {
     elapsed=$((elapsed+5))
     echo have waited $elapsed seconds
 
-    # it's observed that the share nodeJoinFile may not be
-    # noticed by other nodes soon enough.  Adding a "ls parentDir"
-    # seems to help
+    # It's observed that nodeJoinFile in shared file system may not be
+    # noticed by other nodes soon enough.  Adding "ls parentDir"
+    # forces the parent directory to sync-up.
     ls $(dirname $nodeJoinFile) > /dev/null
     if [ -f $nodeJoinFile ]; then
       break
     fi
   done
+
+  # NOTE: The join command is the last two lines in the output of
+  # kubeadm.  But replying on this is fragile.
   twoLines=$(tail -2 $nodeJoinFile)
   # remove backslash that separates two lines
   joinCmd=$(echo $twoLines | sed 's/\\/ /')
@@ -217,7 +221,6 @@ want_cmd_output=1
 exec_cmd curl -fsSL https://download.docker.com/linux/ubuntu/gpg
 exec_cmd apt-key add <<< "$cmd_output"
 
-#dep_path="deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs)  stable"
 dep_path="deb https://download.docker.com/linux/ubuntu $(lsb_release -cs)  stable"
 exec_cmd add-apt-repository ${dep_path@Q}
 
@@ -260,6 +263,7 @@ exec_cmd add-apt-repository ${dep_path@Q}
 exec_cmd apt-get install -y kubelet kubeadm kubectl
 exec_cmd apt-mark hold kubelet kubeadm kubectl
 
+# NOTE: k8s ask swap to be turned off.  That may be trouble.
 exec_cmd swapoff -a
 
 if [ $onMaster -eq 1 ]; then
@@ -268,11 +272,10 @@ if [ $onMaster -eq 1 ]; then
   exec_cmd kubeadm init $pod_network_cidr $service_cidr --v=5
   echo "$cmd_output" > $nodeJoinFile
 
-  # get network, load balancer and context ready
+  # set up network, load balancer or ingress controller.
   afterKubeInit
-
 else
-  # on worker.  wait for master to be ready then join
+  # on worker.  wait for nodeJoinFile to appear and then join.
   wait4joinFile
   exec_cmd $joinCmd --v=5
 fi
