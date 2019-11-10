@@ -171,10 +171,21 @@ EOF
   # add host ips in the cluster as public ips
   for node in "${nodes[@]}"; do
     echo "      - ${node}/32" >> $metallbConfig
+
+    # NOTE: The original design is to add ip addresses of all nodes
+    # as usable entry points.  But it seems easier to explain to
+    # the user that a service is accessed via master node's ip plus
+    # a specific port number.  Therefore break after adding master's ip.
+    # -- czang
+    break
   done
 
   # config load balancer.
   exec_cmd kubectl apply -f $metallbConfig
+
+  if [ "$wallCommand" ]; then
+    $wallCommand
+  fi
 }
 
 # this function runs on work only

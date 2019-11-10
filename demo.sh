@@ -35,15 +35,14 @@ exec_cmd() {
 # replace the line above with a single "}" to observe command's output
 }
 
-exec_cmd rm -rf ~/.k8s
-exec_cmd mkdir  ~/.k8s
-fullPath=$(echo ~/.k8s)
+tmpFileDir=/tmp/k8s
+exec_cmd rm -rf $tmpFileDir
+exec_cmd mkdir $tmpFileDir
 
-metallbConfig=$fullPath/metallbConfig.yaml
-helloDeploy=$fullPath/hello.yaml
-nginxLB=$fullPath/nginxLB.yaml
-helloLB=$fullPath/helloLB.yaml
-randomKey=$(openssl rand -base64 14)
+metallbConfig=$tmpFileDir/metallbConfig.yaml
+helloDeploy=$tmpFileDir/hello.yaml
+nginxLB=$tmpFileDir/nginxLB.yaml
+helloLB=$tmpFileDir/helloLB.yaml
 
 # deploy nginx
 # NOTE: assuming that this deployment defines a label "app: ngnix"
@@ -55,7 +54,7 @@ kind: Service
 metadata:
   name: nginx
   annotations:
-    metallb.universe.tf/allow-shared-ip: "$randomKey"
+    metallb.universe.tf/allow-shared-ip: "happily-sharing-h0-ip"
 spec:
   ports:
   - port: 80
@@ -100,7 +99,7 @@ kind: Service
 metadata:
   name: hello
   annotations:
-    metallb.universe.tf/allow-shared-ip: "$randomKey"
+    metallb.universe.tf/allow-shared-ip: "happily-sharing-h0-ip"
 spec:
   ports:
   - port: 8080
