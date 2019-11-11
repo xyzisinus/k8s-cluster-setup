@@ -60,7 +60,8 @@ service_cidr=''
 useIngressController=1
 
 # local specific script.  It may modify the variable above,
-# configure network, etc.
+# configure network, etc.  It can be a symlink to a script
+# in a separate git repository for local k8s configuration.
 . $DIR/k8s-local-setup.sh
 
 printVariables() {
