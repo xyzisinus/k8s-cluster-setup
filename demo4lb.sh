@@ -1,6 +1,15 @@
 #!/bin/bash
 
-# should be running in user's shell
+# Demonstrate how to create two applications and expose them
+# as load balancer services.
+#
+# Note: To allow these two services to SHARE the same external-ip,
+# the developer MUST provide the SAME allow-shared-ip key for each
+# service (read more on metallb).  Otherwise, only one application is
+# exposed for each available external ip address known to metallb.
+#
+# The script should be run in the user's shell.
+# Go to the end of this file to See how to verify the exposed services.
 
 DEBUG=1  # show command output if not 0
 want_cmd_output=0  # caller should set to non-zero if cmd output is wanted
@@ -31,8 +40,6 @@ exec_cmd() {
 
   want_cmd_output=0
   cmd_fail_ok=0
-# } &>> /var/log/k8s/setup.log
-# replace the line above with a single "}" to observe command's output
 }
 
 tmpFileDir=/tmp/k8s
@@ -44,10 +51,15 @@ helloDeploy=$tmpFileDir/hello.yaml
 nginxLB=$tmpFileDir/nginxLB.yaml
 helloLB=$tmpFileDir/helloLB.yaml
 
-# deploy nginx
+# deploy nginx using a canned k8s spec
 # NOTE: assuming that this deployment defines a label "app: ngnix"
 exec_cmd kubectl create deployment nginx --image=nginx
 
+# expose the deployed nginx as a LB (load balancer) service
+#
+# NOTE: All load balancer services in this script use the same
+# metallb.universe.tf/allow-shared-ip key.  It allows them to
+# share the same external ip (with different ports) as their entry.
 cat > $nginxLB <<EOF
 apiVersion: v1
 kind: Service
@@ -63,9 +75,9 @@ spec:
     app: nginx
   type: LoadBalancer
 EOF
-
 exec_cmd kubectl apply -f $nginxLB
 
+# deploy the second application
 cat > $helloDeploy <<EOF
 apiVersion: apps/v1
 kind: Deployment
@@ -90,9 +102,9 @@ spec:
         ports:
         - containerPort: 8080
 EOF
-
 exec_cmd kubectl apply -f $helloDeploy
 
+# expose the second deployment as a LB service
 cat > $helloLB <<EOF
 apiVersion: v1
 kind: Service
@@ -108,7 +120,21 @@ spec:
     app: hello
   type: LoadBalancer
 EOF
-
 exec_cmd kubectl apply -f $helloLB
 
 exit
+
+# verificaton:
+# "kubectl get svc" should produce something like
+#
+# NAME         TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)
+# hello        LoadBalancer   192.168.11.108   10.92.1.6     8080:32692/TCP
+# kubernetes   ClusterIP      192.168.11.1     <none>        443/TCP
+# nginx        LoadBalancer   192.168.11.44    10.92.1.6     80:30655/TCP
+#
+# On another host where 10.92.1.6 is reachable
+# curl 10.92.1.6:8080
+# should produce output "Hello Kubernetes!"
+# while
+# curl 10.92.1.6
+# should produce the default nginx home page html
