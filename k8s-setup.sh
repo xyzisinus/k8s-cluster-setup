@@ -8,8 +8,8 @@ if [[ $EUID -ne 0 ]]; then
   exit
 fi
 
-if [ "$#" -ne 3 ]; then
-  echo "need 3 args: ssh key, ssh user and quoted list of nodes"
+if [ "$#" -lt 3 ]; then
+  eco "expected args: ssh key, ssh user and a list of nodes (first is master)"
   exit -1
 fi
 
@@ -27,28 +27,36 @@ DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 
 sshKey=$1
 sshUser=$2
+shift
+shift
+
 sshCmd="ssh -o StrictHostKeyChecking=no -i $sshKey -l $sshUser"
 scpCmd="scp -o StrictHostKeyChecking=no -i $sshKey"
 
-read -ra nodes <<< "$3"
-for i in "${!nodes[@]}"; do
-  node="${nodes[$i]}"
+nodes=$@
+firstNode=1
+while (( "$#" )); do
+  node=$1
+  shift
 
   # copy scripts to node
   $scpCmd $DIR/k8s-node-setup.sh ${sshUser}@${node}:/tmp
   $scpCmd $DIR/k8s-local-setup.sh ${sshUser}@${node}:/tmp
 
-  if [ $i -eq 0 ]; then
+  if [ $firstNode -eq 1 ]; then
     # master node. The output of kubeadm init will be dumped into
     # nodeJoinFile (see k8s-node-setup.sh).  The file will be copied
     # the worker nodes for it to join the cluster.
+    echo Setup master node $node
+    firstNode=0
 
     # run node setup script, get nodeJoinFile's location from output
-    nodeJoinFileColon=$($sshCmd ${node} "/tmp/k8s-node-setup.sh \"$3\"" | grep "nodeJoinFile:") || exit 1
+    nodeJoinFileColon=$($sshCmd ${node} "/tmp/k8s-node-setup.sh $nodes" | grep "nodeJoinFile:") || exit 1
     read -r tag nodeJoinFile <<< "$nodeJoinFileColon"
     $scpCmd ${sshUser}@${node}:$nodeJoinFile /tmp || exit 1
   else
     # worker node. copy nodeJoinFile to node and run node setup script
+    echo Setup worker node $node
 
     nodeJoinFileDir=$(dirname $nodeJoinFile)
     $sshCmd ${node} "mkdir -p \"$nodeJoinFileDir\""
