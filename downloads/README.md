@@ -1,3 +1,7 @@
+metallb.yaml
+https://raw.githubusercontent.com/google/metallb/v0.8.1/manifests/metallb.yaml
+on 11/24/2019
+
 mandatory.yaml
 https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/mandatory.yaml
 on 11/24/2019
