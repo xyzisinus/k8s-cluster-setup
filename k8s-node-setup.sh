@@ -145,8 +145,8 @@ configIngressController() {
 
   # To edit the recommended configmap, first get yq, a yaml editor
   exec_cmd add-apt-repository ppa:rmescandon/yq -y
-  exec_cmd apt update
-  exec_cmd apt install yq -y
+  exec_cmd apt-get update
+  exec_cmd apt-get install yq -y
 
   # files involved
   original=$k8sTmpDir/mandatory.yaml
