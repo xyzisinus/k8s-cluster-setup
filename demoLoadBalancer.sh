@@ -46,7 +46,6 @@ tmpFileDir=/tmp/k8s
 exec_cmd rm -rf $tmpFileDir
 exec_cmd mkdir $tmpFileDir
 
-metallbConfig=$tmpFileDir/metallbConfig.yaml
 helloDeploy=$tmpFileDir/hello.yaml
 nginxLB=$tmpFileDir/nginxLB.yaml
 helloLB=$tmpFileDir/helloLB.yaml
