@@ -133,22 +133,61 @@ exec_cmd() {
 # replace the line above with a single "}" to see output directly
 #}
 
-# this function runs on master only
-afterKubeInit() {
-  # copy kube config file to user's space and set KUBECONFIG env
-  exec_cmd cp /etc/kubernetes/admin.conf $KUBECONFIG_FILE
-  exec_cmd chown ${sudo_user_uid}:${sudo_user_gid} $KUBECONFIG_FILE
-  exec_cmd chmod g+r $KUBECONFIG_FILE
-  exec_cmd export KUBECONFIG=$KUBECONFIG_FILE
+configIngressController() {
+  exec_cmd echo config ingress controller
 
-  # use weave addon for networking
-  k8s_app="https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
-  exec_cmd kubectl apply -f $k8s_app
+  # We the ingress-nginx controller
+  # https://kubernetes.github.io/ingress-nginx/deploy/
+  # (not to be confused with https://github.com/nginxinc/kubernetes-ingress)
+  # with hostNetwork on (using the worker nodes' ips as entry point)
+  # The controller is deployed as daemonSet so that each node has
+  # exactly one controller pod.
 
-  # set master as a worker node, too, if it's the only node
-  if [[ ${#nodes[@]} -eq 1 ]]; then
-    exec_cmd kubectl taint nodes --all node-role.kubernetes.io/master-
-  fi
+  # To edit the recommended configmap, first get yq, a yaml editor
+  exec_cmd add-apt-repository ppa:rmescandon/yq -y
+  exec_cmd apt update
+  exec_cmd apt install yq -y
+
+  # files involved
+  original=$k8sTmpDir/mandatory.yaml
+  modified=$k8sTmpDir/mandatory_modified.yaml
+  mod_script=$k8sTmpDir/mod_script.yaml
+
+  # compose a modification yq script
+  cat > $mod_script <<EOF
+kind: DaemonSet
+spec.template.spec.hostNetwork: true
+EOF
+
+  # get the starndard configmap
+  exec_cmd wget -O $original https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/mandatory.yaml
+
+  # the download yaml file contains multiple documents, one of them is "Deployment" of
+  # the ingress controller.  Find its index in the file.
+  IFS=$'\n', read -rd '' -a kinds <<< $(yq r -d'*' $original kind)
+  index=0
+  for kind in "${kinds[@]}"
+  do
+    if [[ $kind =~ "Deployment" ]]; then
+      break
+    fi
+    ((index++))
+  done
+
+  # apply the mod_script to original
+  exec_cmd "yq w -s $mod_script -d $index $original > $modified"
+  # unfortunately it's not clear how to put "delete" into the yq script.
+  # now delete the "replicas" in-place or kubectl will give warning.
+  exec_cmd yq d -i $modified -d $index spec.replicas
+
+  # use the modified file and the original nodeport file for bare-metal
+  # this will allow all worder nodes to become entry points
+  exec_cmd kubectl apply -f $modified
+  exec_cmd kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/baremetal/service-nodeport.yaml
+}
+
+configLoadBalancer() {
+  exec_cmd echo config load balancer
 
   # deploy load balancer
   exec_cmd kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.8.1/manifests/metallb.yaml
@@ -183,7 +222,32 @@ EOF
 
   # config load balancer.
   exec_cmd kubectl apply -f $metallbConfig
+}
 
+# this function runs on master only
+afterKubeInit() {
+  # copy kube config file to user's space and set KUBECONFIG env
+  exec_cmd cp /etc/kubernetes/admin.conf $KUBECONFIG_FILE
+  exec_cmd chown ${sudo_user_uid}:${sudo_user_gid} $KUBECONFIG_FILE
+  exec_cmd chmod g+r $KUBECONFIG_FILE
+  exec_cmd export KUBECONFIG=$KUBECONFIG_FILE
+
+  # use weave addon for networking
+  k8s_app="https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+  exec_cmd kubectl apply -f $k8s_app
+
+  # set master as a worker node, too, if it's the only node
+  if [[ ${#nodes[@]} -eq 1 ]]; then
+    exec_cmd kubectl taint nodes --all node-role.kubernetes.io/master-
+  fi
+
+  if [ $useIngressController -eq 1 ]; then
+    configIngressController
+  else
+    configLoadBalancer
+  fi
+
+  # post the cluster ready message, if any, on the "wall"
   if [ "$wallCommand" ]; then
     $wallCommand
   fi
