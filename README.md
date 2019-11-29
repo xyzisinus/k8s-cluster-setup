@@ -8,7 +8,7 @@ This repository is a set of scripts that configure bare metal machines or VMs in
 
 ### Acknowledgement
 
-Much of the credits belong to the Kubernetes official documents and online community's resources.  It's impossible to list all the webpages having been consulted.  But in case of verbatim code borrowing the source is acknowledged in the comments of the script.
+Much of the credits belong to the Kubernetes official documents and the online community's resources.  It's impossible to list all the webpages consulted.  But in case of verbatim code borrowing the source is acknowledged in the comments of the script.
 
 ### Caveat
 
