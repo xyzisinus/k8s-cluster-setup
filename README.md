@@ -1,4 +1,4 @@
-The file is under construction.  Please check again!
+The file is under construction.  Please check back later!
 
 ## Working scripts to build k8s cluster on bare metal machines or VMs
 
