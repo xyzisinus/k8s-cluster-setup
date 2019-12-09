@@ -1,9 +1,8 @@
-The file is under construction.  Please check back later!
+**The file is under construction.  Please check back later!**
 
 ## Working scripts to build k8s cluster on bare metal machines or VMs
 
-Tested on a set of ASW VMs using open-to-all security
-rules.  Also tested in bare metal machines in an internal network at Carnegie Mellon University.
+Tested on a set of ASW VMs.  Also tested on bare metal machines in an internal network at Carnegie Mellon University.
 
 ### Scripts
 
