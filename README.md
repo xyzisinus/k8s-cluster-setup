@@ -6,7 +6,7 @@ Tested on a set of ASW VMs.  Also tested on bare metal machines in an internal n
 
 ### Scripts
 
-####```k8s-setup.sh```
+**```k8s-setup.sh```**
 Top level script, executed with root privilege.  It takes the following
 arguments
 * ssh private key to the nodes in the cluster
@@ -19,9 +19,9 @@ For example: ```./k8s-setup.sh <path to key> <user> ip1 ip2 ...```
 The script runs the following script on each node, to configure the master node and then
 the worker nodes sequentially.
 
-####```k8s-node-setup.sh```
+**```k8s-node-setup.sh```**
  
-####```k8s-local-setup-template.sh```
+**```k8s-local-setup-template.sh```**
 
 ### Ingress controller
 
