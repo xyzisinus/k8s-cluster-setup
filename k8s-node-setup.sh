@@ -185,7 +185,9 @@ EOF
   exec_cmd yq d -i $modified -d $index spec.replicas
 
   # use the modified file and the original nodeport file for bare-metal
-  # this will allow all worder nodes to become entry points
+  # this will allow all worker nodes to become entry points.  It would
+  # be nice to throw the master node into the pot but that requires
+  # extra configuration.
   exec_cmd kubectl apply -f $modified
   exec_cmd kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/baremetal/service-nodeport.yaml
 }
