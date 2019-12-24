@@ -126,16 +126,19 @@ exec_cmd kubectl apply -f $exampleIngress
 exit
 
 # verificaton:
-# "kubectl get svc" should produce something like
+# Suppose there are nodes with public ip N0, N1, N2, ... in the
+# cluster where N0 is the master node.  Then the apple and banana
+# apps should be accessible from any worker node, N1, N2, ....
 #
-# NAME         TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)
-# hello        LoadBalancer   192.168.11.108   10.92.1.6     8080:32692/TCP
-# kubernetes   ClusterIP      192.168.11.1     <none>        443/TCP
-# nginx        LoadBalancer   192.168.11.44    10.92.1.6     80:30655/TCP
+# On a host where the worker nodes are reachable,
+# "curl N1/apple"
+# should produce output
+# "apple"
+# While "curl N1/banana"
+# should produce output
+# "banana"
 #
-# On another host where 10.92.1.6 is reachable
-# curl 10.92.1.6:8080
-# should produce output "Hello Kubernetes!"
-# while
-# curl 10.92.1.6
-# should produce the default nginx home page html
+# Try those commands on another worker node ip, say,
+# curl N2/apple
+# curl N2/banana
+# They should produce the same output.

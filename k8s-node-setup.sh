@@ -60,7 +60,6 @@ nodeJoinFile=$k8sTmpDir/nodeJoinFile
 
 # kubeadm init options
 pod_network_cidr='--pod-network-cidr=10.244.0.0/16'
-#pod_network_cidr=''
 service_cidr=''
 useIngressController=1
 
