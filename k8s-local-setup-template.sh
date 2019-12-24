@@ -24,31 +24,13 @@ exit
 
 # Some considerations with regard to local environment:
 localSetup() {
-  # In your environment, the k8s-node-setup.sh may be fired on
-  # each node parallelly. In such case, your environment should
-  # provide a way to figure out the machines that will be in the
-  # k8s cluster.  Then find the nodes and assign the array of machines
-  # to the "nodes" variable.
-  nodes=???
+  # If your hosts run behind a firewall and use proxy to reach the open
+  # internet, you should consider using other means, such as NAT here.
 
-  # You may also figure out if the current machine is the master node,
-  # the first machine in the nodes array.
-  onMaster=???
-
-  # If running on worker node, wipe out the nodes array.
-  if [ $onMaster -eq 1 ]; then
-    nodes=()
-  else
-    # You may want the "wall" message to inform the user that the k8s
-    # setup is done on the master node.
-    wallCommand="wall NOTE: KUBERNETES MASTER NODE IS READY"
-  fi
-
-  # Configure the network so that the Kubernetes packages can be downloaded.
-  # Using proxy is not recommended because that will force you to add many
-  # network addresses into the no_proxy environment variable.
-
-  # Remove proxy settings.
+  # There will be ips in your k8s cluster that are
+  # too numerous to be added into your no_proxy environment variable.
+  # So after network configuraton above, remove the proxy
+  # environment variables.
   unset http_proxy
   unset https_proxy
   unset no_proxy
@@ -64,8 +46,31 @@ localSetup() {
   nodeJoinFile=$k8sTmpDir/nodeJoinFile
   logFile=$k8sShare/logs/$host.k8s.setup.log
 
+  # In your environment, the k8s-node-setup.sh may be fired on
+  # each node parallelly. In such case, your environment should
+  # provide a way to figure out the machines that will be in the
+  # k8s cluster.  Then find the nodes and assign the array of machines
+  # to the "nodes" variable.
+  nodes=???
+
+  # You may also figure out if the current machine is the master node,
+  # the first machine in the nodes array.
+  onMaster=???
+
+  # If running on worker node, wipe out the nodes array and be done.
+  if [ $onMaster -eq 1 ]; then
+    nodes=()
+    return
+  fi
+
+  # The following code is executed on the MASTER node ONLY.
+
+  # You may want the "wall" message to inform the user that the k8s
+  # setup is done on the master node.
+  wallCommand="wall NOTE: KUBERNETES MASTER NODE IS READY"
+
   # Depending on local network, you might want to give non-default
-  # routing masks.  The following is just examples.
+  # routing masks to k8s.  The following is just examples.
   pod_network_cidr='--pod-network-cidr=192.168.10.0/24'
   service_cidr='--service-cidr=192.168.11.0/24'
 
@@ -73,7 +78,7 @@ localSetup() {
   # support crypto instructions.  In such case do not use ingress controller.
   useIngressController=0
 
-  # On master node ONLY: create a service to clean up nodeJoinFile at shutdown
+  # Create a service to clean up nodeJoinFile at shutdown
   cat > /etc/systemd/system/k8s-cleanup.service <<EOF
 [Unit]
 Description=Delete-${nodeJoinFile}-at-shutdown
