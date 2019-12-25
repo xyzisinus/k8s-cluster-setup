@@ -140,7 +140,7 @@ exec_cmd() {
 configIngressController() {
   exec_cmd echo config ingress controller
 
-  # We the ingress-nginx controller
+  # Use the ingress-nginx controller
   # https://kubernetes.github.io/ingress-nginx/deploy/
   # (not to be confused with https://github.com/nginxinc/kubernetes-ingress)
   # with hostNetwork on (using the worker nodes' ips as entry point)
